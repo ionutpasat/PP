@@ -1,4 +1,3 @@
-
 :- dynamic detailed_mode_disabled/0.
 :- ensure_loaded('files.pl').
 % student file for Ultimate Tic Tac Toe implementation
@@ -7,7 +6,7 @@
 % initialState(-State)
 % Este adevărat pentru starea inițială a jocului.
 initialState(S) :- empty_board(Mt), positions(Pos),
-            S = [[Mt, Mt, Mt, Mt, Mt, Mt, Mt, Mt, Mt], Mt, x, Pos].
+            S = [[Mt, Mt, Mt, Mt, Mt, Mt, Mt, Mt, Mt], Mt, x, Pos, c].
 
 getNumPos(nw, 0). getNumPos(n, 1). getNumPos(ne, 2).
 getNumPos(w, 3). getNumPos(c, 4). getNumPos(e, 5).
@@ -128,10 +127,10 @@ searchNextPlayer(Board, NP) :- maplist(getBoardXCount, Board, XList),
                             isNextPlayer(Dif, NP).
 
 boardCheckBuild('', B, Pos, S) :- maplist(getBoardResult, B, UBoardState), searchNextPlayer(B, NP),
-                        S = [B, UBoardState, NP, [Pos]].
-boardCheckBuild(_, B, _, S) :- maplist(getBoardResult, B, UBoardState), searchNextPlayer(B, NP),
+                        S = [B, UBoardState, NP, [Pos], Pos].
+boardCheckBuild(_, B, Pos, S) :- maplist(getBoardResult, B, UBoardState), searchNextPlayer(B, NP),
                         indexOf(UBoardState, '', NextMoves), maplist(getPosNum, NextMoves, NextMoves1),
-                        S = [B, UBoardState, NP, NextMoves1].
+                        S = [B, UBoardState, NP, NextMoves1, Pos].
 %boardCheckBuild(0,B,P,S) :- S = 10.
 
 buildState(B, P, S) :- getNumPos(P, Pos), nth0(Pos, B, BCheck),
@@ -141,11 +140,43 @@ buildState(B, P, S) :- getNumPos(P, Pos), nth0(Pos, B, BCheck),
 % Este adevărat dacă mutarea Move este legală în starea State.
 % Move este fie o poziție, în cazul în care este o singură tablă disponibilă
 % pentru a următoarea mutare din starea State, fie o pereche de poziții, altfel.
-validMove(S, Moves) :- nth0(3, S, NextMoves), indexOf(NextMoves, '', Res), nth0(0, S, Board),
-                       getBoardResult(Board, Res1), length(Res, Len), validAux(Len, Res1, Moves, NextMoves).
-validAux(0, _, _, _) :- false.
-validAux(1, '', Move, NextMoves) :- member(Move, NextMoves).
-validAux(_, '', (M1, M2), NextMoves) :- member(M1, NextMoves), member(M2, NextMoves).
+checkBoard(X) :-
+    (
+        (X=x ; X=0 ; X=r) ->
+            false ;
+            true
+    ).
+
+
+myMem(X, [X|_]) :- !. % ca să fac cut doar al o apariție de mai târziu, adaug înainte de cut condiția: length(T, L), L < 5,
+% myMem(X, [X|_]) :- write("Here"). % detecția, pentru cazul în care am adăugat condițiile suplimentare de mai sus
+myMem(X, [_|T]) :- myMem(X, T).
+
+%validMove(S, Moves) :- nth0(3, S, NextMoves), nth0(0, S, Board),
+%                       getBoardResult(Board, Res1), checkBoard(Res1), nth0(4, S, Pos),
+%                       getNumPos(Pos, NumPos), validAux(Moves, NexMoves, Board, NumPos).
+%validAux((M1, M2), NextMoves, Board, _) :- member(M1, NextMoves), getNumPos(M1, Pos1), nth0(Pos1, Board, MB),
+%                                    indexOf(MB, '', Res), maplist(getPosNum, Res, ResMoves),
+%                                    member(M2, ResMoves).
+%validAux(Move, NextMoves, Board, P) :- getNumPos(P, Pos), nth0(Pos, Board, MB),
+%                                    indexOf(MB, '', Res), maplist(getPosNum, Res, ResMoves),
+%                                    member(Move, ResMoves), member(P, NextMoves).
+
+validMove([Board,_ , _, NextMoves, PrevPos], Move) :- myMem(PrevPos, NexMoves),
+                    getBoardResult(Board, Res1),
+                    checkBoard(Res1), 
+                    getNumPos(PrevPos, NumPos), nth0(NumPos, Board, MB),
+                    indexOf(MB, '', Res), getNumPos(Move, NumMove),
+                    myMem(NumMove, Res), !.
+validMove([Board,_ , _, NextMoves, _], (M1, M2)) :- myMem(M1, NextMoves),
+                    getBoardResult(Board, Res1), checkBoard(Res1),
+                    getNumPos(M1, NumPos), nth0(NumPos, Board, MB),
+                    indexOf(MB, '', Res), getNumPos(M2, NM2),
+                    myMem(M1, NextMoves), getBoardResult(Board, Res1), 
+                    checkBoard(Res1), myMem(NM2, Res), !.
+
+
+
 % makeMove/3
 % makeMove(+State, +Move, -NewState)
 % Este adevărat dacă în urma aplicării mutării Move în starea State
